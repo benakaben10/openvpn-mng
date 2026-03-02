@@ -98,7 +98,7 @@ Supported: Debian 11+, Ubuntu 20.04+
 
 ```bash
 # Download latest release (replace VERSION with actual version)
-VERSION="1.0.0"
+VERSION="1.1.0"
 wget https://github.com/tldr-it-stepankutaj/openvpn-mng/releases/download/v${VERSION}/openvpn-mng_${VERSION}_linux_amd64.deb
 
 # Verify checksum (recommended)
@@ -140,7 +140,7 @@ Supported: RHEL 8+, AlmaLinux 8+, Rocky Linux 8+, Fedora 38+
 
 ```bash
 # Download latest release
-VERSION="1.0.0"
+VERSION="1.1.0"
 wget https://github.com/tldr-it-stepankutaj/openvpn-mng/releases/download/v${VERSION}/openvpn-mng_${VERSION}_linux_amd64.rpm
 
 # Verify checksum (recommended)
@@ -172,7 +172,7 @@ sudo dnf install ./openvpn-mng_${VERSION}_linux_arm64.rpm
 docker pull tldr/openvpn-mng:latest
 
 # Specific version
-docker pull tldr/openvpn-mng:1.0.0
+docker pull tldr/openvpn-mng:1.1.0
 ```
 
 **Run container:**
@@ -467,6 +467,14 @@ logging:
   path: "/var/log/openvpn-mng"
   format: "json"
   level: "info"
+
+security:
+  rate_limit_enabled: true
+  rate_limit_requests: 5
+  rate_limit_window: 60
+  rate_limit_burst: 10
+  lockout_max_attempts: 5
+  lockout_duration: 15
 ```
 
 ---
@@ -710,3 +718,13 @@ Define network segments and assign them to groups:
 ![Network Management](images/admin_networks.png)
 
 For more information, see the [API Documentation](api.md) and [Client Integration Guide](client.md).
+
+---
+
+## OpenVPN Client Integration
+
+After installing OpenVPN Manager, you need to install **[openvpn-client](https://github.com/tldr-it-stepankutaj/openvpn-client)** on the OpenVPN server to connect the two systems. The client provides hook scripts that OpenVPN calls during user authentication, connection, and disconnection events.
+
+1. Install openvpn-client on the OpenVPN server — see the [openvpn-client installation guide](https://github.com/tldr-it-stepankutaj/openvpn-client#installation)
+2. Configure it to point to this OpenVPN Manager instance using the VPN Auth API token
+3. Set up the OpenVPN server hooks (`auth-user-pass-verify`, `client-connect`, `client-disconnect`) to call the openvpn-client binaries

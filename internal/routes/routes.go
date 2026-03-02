@@ -11,7 +11,7 @@ import (
 )
 
 // SetupRoutes sets up all routes
-func SetupRoutes(r *gin.Engine, cfg *config.Config) {
+func SetupRoutes(r *gin.Engine, cfg *config.Config, rateLimiter *middleware.RateLimiter, blacklist *middleware.TokenBlacklist) {
 	// Static files
 	r.Static("/static", "./web/static")
 
@@ -19,13 +19,14 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	r.LoadHTMLGlob("web/templates/*")
 
 	// Handlers
-	authHandler := handlers.NewAuthHandler(&cfg.Auth)
+	authHandler := handlers.NewAuthHandler(&cfg.Auth, blacklist, &cfg.Security)
 	userHandler := handlers.NewUserHandler(&cfg.VPN)
 	groupHandler := handlers.NewGroupHandler()
 	networkHandler := handlers.NewNetworkHandler()
 	vpnSessionHandler := handlers.NewVpnSessionHandler()
 	vpnAuthHandler := handlers.NewVpnAuthHandler()
 	vpnIPHandler := handlers.NewVPNIPHandler(&cfg.VPN)
+	vpnClientConfigHandler := handlers.NewVpnClientConfigHandler()
 	auditHandler := handlers.NewAuditHandler()
 	webHandler := handlers.NewWebHandler()
 
@@ -38,7 +39,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 
 		// Protected web routes
 		protected := webRoutes.Group("/")
-		protected.Use(middleware.AuthMiddleware(&cfg.Auth))
+		protected.Use(middleware.AuthMiddleware(&cfg.Auth, blacklist))
 		{
 			protected.GET("/dashboard", webHandler.DashboardPage)
 			protected.GET("/users", webHandler.UsersPage)
@@ -48,6 +49,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 			protected.GET("/audit", webHandler.AuditPage)
 			protected.GET("/sessions", webHandler.SessionsPage)
 			protected.GET("/profile", webHandler.ProfilePage)
+			protected.GET("/vpn-settings", webHandler.VpnSettingsPage)
 		}
 	}
 
@@ -58,12 +60,16 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 			// Auth routes (public)
 			auth := api.Group("/auth")
 			{
-				auth.POST("/login", authHandler.Login)
+				if rateLimiter != nil {
+					auth.POST("/login", rateLimiter.Middleware(), authHandler.Login)
+				} else {
+					auth.POST("/login", authHandler.Login)
+				}
 			}
 
 			// Protected API routes
 			protected := api.Group("/")
-			protected.Use(middleware.AuthMiddleware(&cfg.Auth))
+			protected.Use(middleware.AuthMiddleware(&cfg.Auth, blacklist))
 			{
 				// Auth
 				protected.POST("/auth/logout", authHandler.Logout)
@@ -128,6 +134,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 					vpn.POST("/validate-ip", vpnIPHandler.ValidateIP)
 					vpn.GET("/used-ips", vpnIPHandler.GetUsedIPs)
 
+					// VPN Client Config - Download available to any authenticated user
+					vpn.GET("/client-config/download", vpnClientConfigHandler.Download)
+
 					// Write endpoints - any authenticated user (VPN server calls these)
 					vpn.POST("/sessions", vpnSessionHandler.Create)
 					vpn.PUT("/sessions/:id/disconnect", vpnSessionHandler.Disconnect)
@@ -143,6 +152,12 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 						vpnAdmin.GET("/stats", vpnSessionHandler.GetStats)
 						vpnAdmin.GET("/stats/users", vpnSessionHandler.GetUserStats)
 						vpnAdmin.GET("/traffic-stats", vpnSessionHandler.ListTrafficStats)
+
+						// VPN Client Config management - Admin only
+						vpnAdmin.GET("/client-config", vpnClientConfigHandler.Get)
+						vpnAdmin.PUT("/client-config", vpnClientConfigHandler.Update)
+						vpnAdmin.GET("/client-config/preview", vpnClientConfigHandler.Preview)
+						vpnAdmin.GET("/client-config/default-template", vpnClientConfigHandler.GetDefaultTemplate)
 					}
 				}
 
@@ -166,7 +181,11 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 			vpnAuth := api.Group("/vpn-auth")
 			vpnAuth.Use(middleware.VpnTokenAuth(cfg.API.VpnToken))
 			{
-				vpnAuth.POST("/authenticate", vpnAuthHandler.Authenticate)
+				if rateLimiter != nil {
+					vpnAuth.POST("/authenticate", rateLimiter.Middleware(), vpnAuthHandler.Authenticate)
+				} else {
+					vpnAuth.POST("/authenticate", vpnAuthHandler.Authenticate)
+				}
 				vpnAuth.GET("/users", vpnAuthHandler.ListAllUsers)
 				vpnAuth.GET("/users/:id", vpnAuthHandler.GetUserByID)
 				vpnAuth.GET("/users/:id/routes", vpnAuthHandler.GetUserRoutes)

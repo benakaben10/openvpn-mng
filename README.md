@@ -16,6 +16,7 @@ A web-based management system for OpenVPN users, groups, networks, and access co
 - **Group Management**: Organize users into groups (IT, HR, Finance, etc.)
 - **Network Management**: Define network segments (IP/CIDR) and assign them to groups
 - **VPN Session Tracking**: Monitor active connections, traffic statistics, and usage history
+- **VPN Client Config**: Generate and download .ovpn configuration files for users
 - **Role-Based Access Control (RBAC)**:
   - `USER` - Can only view and edit their own profile
   - `MANAGER` - Can create and manage users assigned to them
@@ -30,12 +31,16 @@ A web-based management system for OpenVPN users, groups, networks, and access co
 - **IP Filtering**: Restrict Swagger documentation access by IP/CIDR ranges
 - **Flexible Logging**: Configurable output (stdout/file), format (text/JSON), and log levels
 
+## Related Projects
+
+- **[OpenVPN Client](https://github.com/tldr-it-stepankutaj/openvpn-client)** — Go-based integration layer between the OpenVPN server and this management API. Install it on the OpenVPN server to enable automatic user authentication, route assignment, session tracking, and firewall rule generation.
+
 ## Quick Install
 
 ### DEB (Debian, Ubuntu)
 
 ```bash
-VERSION="1.0.0"
+VERSION="1.1.0"
 wget https://github.com/tldr-it-stepankutaj/openvpn-mng/releases/download/v${VERSION}/openvpn-mng_${VERSION}_linux_amd64.deb
 sudo dpkg -i openvpn-mng_${VERSION}_linux_amd64.deb
 ```
@@ -43,7 +48,7 @@ sudo dpkg -i openvpn-mng_${VERSION}_linux_amd64.deb
 ### RPM (RHEL, AlmaLinux, Rocky Linux)
 
 ```bash
-VERSION="1.0.0"
+VERSION="1.1.0"
 wget https://github.com/tldr-it-stepankutaj/openvpn-mng/releases/download/v${VERSION}/openvpn-mng_${VERSION}_linux_amd64.rpm
 sudo dnf install ./openvpn-mng_${VERSION}_linux_amd64.rpm
 ```
@@ -113,6 +118,14 @@ logging:
   output: "stdout"
   format: "text"
   level: "info"
+
+security:
+  rate_limit_enabled: true
+  rate_limit_requests: 5    # max requests per window
+  rate_limit_window: 60     # window in seconds
+  rate_limit_burst: 10      # burst size
+  lockout_max_attempts: 5   # failed logins before lockout
+  lockout_duration: 15      # lockout duration in minutes
 ```
 
 ### Environment Variables
@@ -125,6 +138,12 @@ Configuration can also be set via environment variables:
 | `AUTH_JWT_SECRET` | JWT signing secret |
 | `API_VPN_TOKEN` | VPN Auth API token |
 | `LOG_OUTPUT`, `LOG_FORMAT`, `LOG_LEVEL` | Logging configuration |
+| `SECURITY_RATE_LIMIT_ENABLED` | Enable rate limiting (default: true) |
+| `SECURITY_RATE_LIMIT_REQUESTS` | Max requests per window (default: 5) |
+| `SECURITY_RATE_LIMIT_WINDOW` | Rate limit window in seconds (default: 60) |
+| `SECURITY_RATE_LIMIT_BURST` | Rate limit burst size (default: 10) |
+| `SECURITY_LOCKOUT_MAX_ATTEMPTS` | Failed logins before lockout (default: 5) |
+| `SECURITY_LOCKOUT_DURATION` | Lockout duration in minutes (default: 15) |
 
 See **[Installation Guide](help/install.md)** for complete environment variable list.
 
@@ -139,6 +158,7 @@ See **[Installation Guide](help/install.md)** for complete environment variable 
 | `/networks` | Network management (Admin only) |
 | `/audit` | Audit logs (Admin only) |
 | `/sessions` | VPN session history (Admin only) |
+| `/vpn-settings` | VPN client config settings (Admin only) |
 | `/profile` | User profile |
 
 ### Screenshots
@@ -229,6 +249,21 @@ The VPN Auth API provides dedicated endpoints for OpenVPN server integration usi
 
 All endpoints require the `X-VPN-Token` header. See **[Client Integration Guide](help/client.md)** for complete documentation.
 
+## VPN Client Configuration
+
+Users can download OpenVPN client configuration files (.ovpn) directly from the web interface:
+
+- **Dashboard/Profile**: Download button available for all authenticated users
+- **VPN Settings** (Admin only): Configure server address, port, protocol, CA certificate, TLS key, and template
+
+| Endpoint | Method | Access | Description |
+|----------|--------|--------|-------------|
+| `/api/v1/vpn/client-config` | GET | Admin | Get current configuration |
+| `/api/v1/vpn/client-config` | PUT | Admin | Create/update configuration |
+| `/api/v1/vpn/client-config/preview` | GET | Admin | Preview generated .ovpn |
+| `/api/v1/vpn/client-config/download` | GET | Auth | Download .ovpn file |
+| `/api/v1/vpn/client-config/default-template` | GET | Admin | Get default template |
+
 ## Documentation
 
 - **[Installation Guide](help/install.md)** - Complete installation instructions (DEB, RPM, Docker, Source)
@@ -281,6 +316,7 @@ See `make help` for all available targets.
 - **networks** - Network definitions (CIDR ranges)
 - **vpn_sessions** - VPN connection history
 - **vpn_traffic_stats** - Traffic statistics
+- **vpn_client_configs** - VPN client configuration (single-row)
 - **audit_logs** - Audit trail
 
 ### Junction Tables
@@ -298,6 +334,10 @@ See `make help` for all available targets.
 6. **Audit logging** - Monitor audit logs for suspicious activity
 7. **User validity** - Use `valid_from`/`valid_to` for temporary access
 8. **VPN API authentication** - Use VPN token instead of service account
+9. **Rate limiting** - Login and VPN auth endpoints are rate-limited per IP (configurable via `security` config)
+10. **Account lockout** - Accounts are temporarily locked after repeated failed login attempts
+11. **Token blacklist** - Logged-out JWT tokens are immediately invalidated until natural expiry
+12. **CSRF protection** - Auth cookies use `SameSite=Lax` to prevent cross-site request forgery
 
 ## Contributing
 
