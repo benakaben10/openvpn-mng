@@ -55,15 +55,22 @@ func (h *VpnSessionHandler) List(c *gin.Context) {
 		return
 	}
 
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
 	pageSize := filter.PageSize
 	if pageSize < 1 {
 		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
 	}
 
 	c.JSON(http.StatusOK, dto.VpnSessionListResponse{
 		Sessions:   dto.ToVpnSessionResponseList(sessions),
 		Total:      total,
-		Page:       filter.Page,
+		Page:       page,
 		PageSize:   pageSize,
 		TotalPages: services.CalculateTotalPages(total, pageSize),
 	})

@@ -16,7 +16,13 @@ type Config struct {
 	API      APIConfig      `yaml:"api"`
 	Auth     AuthConfig     `yaml:"auth"`
 	Logging  LoggingConfig  `yaml:"logging"`
+	Audit    AuditConfig    `yaml:"audit"`
 	VPN      VPNConfig      `yaml:"vpn"`
+}
+
+// AuditConfig controls audit-log retention.
+type AuditConfig struct {
+	MaxEntries int `yaml:"max_entries"` // Maximum audit rows to retain
 }
 
 // VPNConfig represents VPN network configuration
@@ -100,6 +106,9 @@ func Load(path string) (*Config, error) {
 	if config.Auth.SessionExpiry == 0 {
 		config.Auth.SessionExpiry = 8
 	}
+	if config.Audit.MaxEntries <= 0 {
+		config.Audit.MaxEntries = 10000
+	}
 
 	// Logging defaults
 	if config.Logging.Output == "" {
@@ -181,6 +190,13 @@ func loadEnvOverrides(config *Config) {
 	if v := os.Getenv("AUTH_SESSION_EXPIRY"); v != "" {
 		if expiry, err := strconv.Atoi(v); err == nil {
 			config.Auth.SessionExpiry = expiry
+		}
+	}
+
+	// Audit configuration
+	if v := os.Getenv("AUDIT_MAX_ENTRIES"); v != "" {
+		if maxEntries, err := strconv.Atoi(v); err == nil && maxEntries > 0 {
+			config.Audit.MaxEntries = maxEntries
 		}
 	}
 

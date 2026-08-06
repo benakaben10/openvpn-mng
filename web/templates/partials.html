@@ -1,0 +1,150 @@
+{{/*
+    Shared layout partials for the OpenVPN Manager console.
+
+    Every authenticated page renders the same shell:
+        {{template "head" .}} -> {{template "shell_open" .}} -> page content -> {{template "shell_close" .}}
+
+    The shell expects the payload built by WebHandler.pageData:
+        .title  page title
+        .role   USER | MANAGER | ADMIN
+        .user   *models.User for the signed-in account (may be nil)
+        .active nav key: dashboard|users|groups|networks|sessions|audit|profile
+*/}}
+
+{{define "head"}}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>{{.title}}</title>
+<link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+<link href="/static/css/style.css" rel="stylesheet">
+<script>
+    // Applied before first paint so the theme never flashes.
+    (function () {
+        try {
+            var stored = localStorage.getItem('ovpn.theme');
+            var theme = stored === 'dark' || stored === 'light'
+                ? stored
+                : (globalThis.matchMedia && globalThis.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        } catch (e) {
+            document.documentElement.setAttribute('data-bs-theme', 'light');
+        }
+    })();
+</script>
+{{end}}
+
+{{define "sidebar"}}
+<aside class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="appSidebar" aria-label="Main navigation">
+    <a class="app-brand" href="/dashboard">
+        <span class="app-brand-mark"><i class="bi bi-shield-lock-fill"></i></span>
+        <span class="app-brand-text">OpenVPN<strong>Manager</strong></span>
+        <button type="button" class="btn-close d-lg-none ms-auto" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close navigation"></button>
+    </a>
+
+    <nav class="app-nav">
+        <p class="app-nav-section">Overview</p>
+        <a class="app-nav-link{{if eq .active "dashboard"}} active{{end}}" href="/dashboard">
+            <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+
+        {{if or (eq .role "ADMIN") (eq .role "MANAGER")}}
+        <p class="app-nav-section">Access control</p>
+        <a class="app-nav-link{{if eq .active "users"}} active{{end}}" href="/users">
+            <i class="bi bi-people"></i><span>Users</span>
+        </a>
+        <a class="app-nav-link{{if eq .active "groups"}} active{{end}}" href="/groups">
+            <i class="bi bi-diagram-3"></i><span>Groups</span>
+        </a>
+        {{if eq .role "ADMIN"}}
+        <a class="app-nav-link{{if eq .active "networks"}} active{{end}}" href="/networks">
+            <i class="bi bi-hdd-network"></i><span>Networks</span>
+        </a>
+        {{end}}
+        {{end}}
+
+        {{if eq .role "ADMIN"}}
+        <p class="app-nav-section">Monitoring</p>
+        <a class="app-nav-link{{if eq .active "sessions"}} active{{end}}" href="/sessions">
+            <i class="bi bi-clock-history"></i><span>Session history</span>
+        </a>
+        <a class="app-nav-link{{if eq .active "audit"}} active{{end}}" href="/audit">
+            <i class="bi bi-journal-text"></i><span>Audit log</span>
+        </a>
+        {{end}}
+
+        <p class="app-nav-section">Account</p>
+        <a class="app-nav-link{{if eq .active "profile"}} active{{end}}" href="/profile">
+            <i class="bi bi-person-gear"></i><span>My profile</span>
+        </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+        <button type="button" class="app-signout" onclick="logout()">
+            <i class="bi bi-box-arrow-right"></i><span>Sign out</span>
+        </button>
+    </div>
+</aside>
+{{end}}
+
+{{define "topbar"}}
+<header class="app-topbar">
+    <button class="btn-icon d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebar" aria-controls="appSidebar" aria-label="Open navigation">
+        <i class="bi bi-list"></i>
+    </button>
+    <a class="app-topbar-brand d-lg-none" href="/dashboard">
+        <i class="bi bi-shield-lock-fill"></i><span>OpenVPN Manager</span>
+    </a>
+
+    <div class="app-topbar-actions">
+        <button class="btn-icon" type="button" data-theme-toggle aria-label="Toggle colour theme" title="Toggle colour theme">
+            <i class="bi bi-moon-stars" data-theme-icon></i>
+        </button>
+
+        <div class="dropdown">
+            <button class="user-chip" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="avatar" data-avatar-name="{{with .user}}{{.FirstName}} {{.LastName}}{{else}}?{{end}}"></span>
+                <span class="user-chip-meta d-none d-sm-flex">
+                    <span class="user-chip-name">{{with .user}}{{.FirstName}} {{.LastName}}{{else}}Account{{end}}</span>
+                    <span class="user-chip-role">{{.role}}</span>
+                </span>
+                <i class="bi bi-chevron-down user-chip-caret"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                {{with .user}}
+                <li class="dropdown-header">
+                    <div class="fw-semibold text-body">{{.Username}}</div>
+                    <div class="small text-body-secondary">{{.Email}}</div>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                {{end}}
+                <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>My profile</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><button class="dropdown-item text-danger" type="button" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>Sign out</button></li>
+            </ul>
+        </div>
+    </div>
+</header>
+{{end}}
+
+{{define "shell_open"}}
+<div class="app-shell">
+    {{template "sidebar" .}}
+    <div class="app-main">
+        {{template "topbar" .}}
+        <main class="app-content">
+            <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+{{end}}
+
+{{define "shell_close"}}
+        </main>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+{{end}}

@@ -182,6 +182,12 @@ func (s *GroupService) AddNetworkToGroup(groupID, networkID, createdBy uuid.UUID
 	if _, err := s.GetByID(groupID); err != nil {
 		return err
 	}
+	// Reject stale IDs from a client popup instead of creating an orphaned
+	// association when database foreign-key constraints are disabled.
+	var network models.Network
+	if err := database.GetDB().First(&network, "id = ?", networkID).Error; err != nil {
+		return err
+	}
 
 	// Check if association already exists
 	var existing models.NetworkGroup

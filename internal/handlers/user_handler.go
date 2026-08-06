@@ -398,6 +398,64 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 	})
 }
 
+// ResetPassword godoc
+// @Summary Reset a user password
+// @Description Administrator resets a user's password without needing the current password
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body dto.ResetUserPasswordRequest true "New password"
+// @Success 200 {object} dto.SuccessResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Router /api/v1/users/{id}/password [put]
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:   "Bad Request",
+			Message: "Invalid user ID",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	var req dto.ResetUserPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:   "Bad Request",
+			Message: err.Error(),
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	adminID := middleware.GetAuthUserID(c)
+	if err := h.userService.ResetPassword(userID, req.NewPassword, adminID); err != nil {
+		if err == services.ErrUserNotFound {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{
+				Error:   "Not Found",
+				Message: "User not found",
+				Code:    http.StatusNotFound,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error:   "Internal Server Error",
+			Message: err.Error(),
+			Code:    http.StatusInternalServerError,
+		})
+		return
+	}
+
+	h.auditLogger.Log(c, models.AuditActionUpdate, "user", &userID, nil, nil, "Password reset by administrator")
+	c.JSON(http.StatusOK, dto.SuccessResponse{Message: "Password reset successfully"})
+}
+
 // Delete godoc
 // @Summary Delete user
 // @Description Delete a user (Admin only)

@@ -24,7 +24,9 @@ func setupIntegrationRouter(cfg *config.AuthConfig) *gin.Engine {
 	router.Use(gin.Recovery())
 
 	authHandler := handlers.NewAuthHandler(cfg)
-	userHandler := handlers.NewUserHandler()
+	// An empty VPN config leaves the pool unconfigured, so user creation
+	// neither validates nor auto-assigns an address.
+	userHandler := handlers.NewUserHandler(&config.VPNConfig{})
 	groupHandler := handlers.NewGroupHandler()
 	networkHandler := handlers.NewNetworkHandler()
 

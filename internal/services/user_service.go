@@ -24,10 +24,14 @@ func NewUserService() *UserService {
 
 // Create creates a new user
 func (s *UserService) Create(req *dto.CreateUserRequest, createdBy uuid.UUID) (*models.User, error) {
-	// Check if user already exists
+	// Active users must keep unique usernames and email addresses.
 	var existing models.User
-	if err := database.GetDB().Where("username = ? OR email = ?", req.Username, req.Email).First(&existing).Error; err == nil {
+	err := database.GetDB().Where("username = ? OR email = ?", req.Username, req.Email).First(&existing).Error
+	if err == nil {
 		return nil, ErrUserExists
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// Hash password
@@ -40,6 +44,48 @@ func (s *UserService) Create(req *dto.CreateUserRequest, createdBy uuid.UUID) (*
 	isActive := true
 	if req.IsActive != nil {
 		isActive = *req.IsActive
+	}
+
+	// Users are soft deleted. Their database unique indexes still reserve the
+	// username and email, so restore a matching deleted account rather than
+	// attempting an insert that would fail with a raw database constraint error.
+	var deletedUsers []models.User
+	if err := database.GetDB().Unscoped().
+		Where("username = ? OR email = ?", req.Username, req.Email).
+		Find(&deletedUsers).Error; err != nil {
+		return nil, err
+	}
+	if len(deletedUsers) > 1 {
+		// Username and email point to different historical accounts. Do not
+		// silently merge them into one account.
+		return nil, ErrUserExists
+	}
+	if len(deletedUsers) == 1 {
+		user := &deletedUsers[0]
+		updates := map[string]interface{}{
+			"username":    req.Username,
+			"password":    hashedPassword,
+			"manager_id":  req.ManagerID,
+			"first_name":  req.FirstName,
+			"middle_name": req.MiddleName,
+			"last_name":   req.LastName,
+			"email":       req.Email,
+			"telephone":   req.Telephone,
+			"role":        req.Role,
+			"is_active":   isActive,
+			"valid_from":  req.ValidFrom.ToTimePtr(),
+			"valid_to":    req.ValidTo.ToTimePtr(),
+			"vpn_ip":      req.VpnIP,
+			"updated_by":  createdBy,
+			"deleted_at":  nil,
+		}
+		if err := database.GetDB().Unscoped().Model(user).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+		if err := database.GetDB().First(user, "id = ?", user.ID).Error; err != nil {
+			return nil, err
+		}
+		return user, nil
 	}
 
 	user := &models.User{
@@ -185,6 +231,25 @@ func (s *UserService) UpdatePassword(id uuid.UUID, currentPassword, newPassword 
 
 	if !VerifyPassword(currentPassword, user.Password) {
 		return ErrInvalidCredentials
+	}
+
+	hashedPassword, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	return database.GetDB().Model(user).Updates(map[string]interface{}{
+		"password":   hashedPassword,
+		"updated_by": updatedBy,
+	}).Error
+}
+
+// ResetPassword replaces a user's password without requiring their current password.
+// Authorization is enforced by the handler route and is restricted to administrators.
+func (s *UserService) ResetPassword(id uuid.UUID, newPassword string, updatedBy uuid.UUID) error {
+	user, err := s.GetByID(id)
+	if err != nil {
+		return err
 	}
 
 	hashedPassword, err := HashPassword(newPassword)

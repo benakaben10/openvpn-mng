@@ -1,585 +1,481 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en" data-bs-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.title}}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+    {{template "head" .}}
     {{if eq .role "ADMIN"}}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     {{end}}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/dashboard">
-                <i class="bi bi-shield-lock me-2"></i>OpenVPN Manager
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/dashboard">
-                            <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    {{if or (eq .role "ADMIN") (eq .role "MANAGER")}}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/users">
-                            <i class="bi bi-people me-1"></i>Users
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/groups">
-                            <i class="bi bi-diagram-3 me-1"></i>Groups
-                        </a>
-                    </li>
-                    {{end}}
-                    {{if eq .role "ADMIN"}}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/networks">
-                            <i class="bi bi-hdd-network me-1"></i>Networks
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/audit">
-                            <i class="bi bi-journal-text me-1"></i>Audit
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/sessions">
-                            <i class="bi bi-clock-history me-1"></i>History
-                        </a>
-                    </li>
-                    {{end}}
+{{template "shell_open" .}}
+
+{{if eq .role "ADMIN"}}
+{{/* ---------------------------------------------------------------- ADMIN */}}
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Dashboard</h1>
+        <p class="page-header-subtitle">Fleet-wide view of accounts, access groups and VPN traffic.</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/sessions" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-clock-history me-1"></i>Session history
+        </a>
+        <a href="/audit" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-journal-text me-1"></i>Audit log
+        </a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-tile stat-blue">
+        <span class="stat-icon"><i class="bi bi-people"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Total users</p>
+            <p class="stat-value">{{if .stats}}{{.stats.TotalUsers}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+    <div class="stat-tile stat-green">
+        <span class="stat-icon"><i class="bi bi-person-check"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Active users</p>
+            <p class="stat-value">{{if .stats}}{{.stats.ActiveUsers}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+    <div class="stat-tile stat-cyan">
+        <span class="stat-icon"><i class="bi bi-broadcast"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Connected now</p>
+            <p class="stat-value">{{if .stats}}{{.stats.ConnectedUsers}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+    <div class="stat-tile stat-amber">
+        <span class="stat-icon"><i class="bi bi-diagram-3"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Groups</p>
+            <p class="stat-value">{{if .stats}}{{.stats.TotalGroups}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+    <div class="stat-tile stat-violet">
+        <span class="stat-icon"><i class="bi bi-hdd-network"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Networks</p>
+            <p class="stat-value">{{if .stats}}{{.stats.TotalNetworks}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+    <div class="stat-tile stat-slate">
+        <span class="stat-icon"><i class="bi bi-clock-history"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Total sessions</p>
+            <p class="stat-value">{{if .stats}}{{.stats.TotalSessions}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="card-header-title"><i class="bi bi-download"></i>Received traffic</h2>
+                <span class="text-muted-2 small">Last 30 days</span>
+            </div>
+            <div class="card-body">
+                <div class="chart-frame"><canvas id="receivedChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="card-header-title"><i class="bi bi-upload"></i>Sent traffic</h2>
+                <span class="text-muted-2 small">Last 30 days</span>
+            </div>
+            <div class="card-body">
+                <div class="chart-frame"><canvas id="sentChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-header-title"><i class="bi bi-journal-text"></i>Recent activity</h2>
+        <a href="/audit" class="btn btn-sm btn-outline-secondary">View all</a>
+    </div>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>IP address</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{if .stats}}
+                {{range .stats.RecentAuditLogs}}
+                <tr>
+                    <td class="text-nowrap"><small>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</small></td>
+                    <td>{{if .User}}<span class="cell-primary">{{.User.Username}}</span>{{else}}<span class="text-muted-2">—</span>{{end}}</td>
+                    <td>
+                        {{if eq .Action "CREATE"}}<span class="pill pill-green">CREATE</span>
+                        {{else if eq .Action "UPDATE"}}<span class="pill pill-amber">UPDATE</span>
+                        {{else if eq .Action "DELETE"}}<span class="pill pill-red">DELETE</span>
+                        {{else if eq .Action "LOGIN"}}<span class="pill pill-blue">LOGIN</span>
+                        {{else if eq .Action "LOGOUT"}}<span class="pill pill-neutral">LOGOUT</span>
+                        {{else}}<span class="pill pill-cyan">{{.Action}}</span>
+                        {{end}}
+                    </td>
+                    <td>{{.EntityType}}</td>
+                    <td>{{if .IPAddress}}<code>{{.IPAddress}}</code>{{else}}<span class="text-muted-2">—</span>{{end}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <span class="empty-state-icon"><i class="bi bi-journal"></i></span>
+                            <p class="empty-state-title">No activity yet</p>
+                            <p class="empty-state-text">Audit entries appear here as users sign in and changes are made.</p>
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+                {{else}}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <span class="empty-state-icon"><i class="bi bi-journal"></i></span>
+                            <p class="empty-state-title">Statistics unavailable</p>
+                            <p class="empty-state-text">Dashboard data could not be loaded. Try refreshing the page.</p>
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{else if eq .role "MANAGER"}}
+{{/* -------------------------------------------------------------- MANAGER */}}
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Welcome back{{with .user}}, {{.FirstName}}{{end}}</h1>
+        <p class="page-header-subtitle">Manage the accounts that report to you and their group access.</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/users" class="btn btn-primary btn-sm"><i class="bi bi-people me-1"></i>Manage users</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-tile stat-blue">
+        <span class="stat-icon"><i class="bi bi-people"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Your subordinates</p>
+            <p class="stat-value">{{if .subordinateCount}}{{.subordinateCount}}{{else}}0{{end}}</p>
+            <p class="stat-hint">Accounts assigned to you as manager</p>
+        </div>
+    </div>
+    <div class="stat-tile stat-violet">
+        <span class="stat-icon"><i class="bi bi-person-badge"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">Your role</p>
+            <p class="stat-value">Manager</p>
+            <p class="stat-hint">{{with .user}}@{{.Username}}{{end}}</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="card-header-title"><i class="bi bi-info-circle"></i>What you can do</h2>
+            </div>
+            <div class="card-body">
+                <ul class="mb-4 ps-3">
+                    <li class="mb-2">View and manage the users who report to you.</li>
+                    <li class="mb-2">Create new accounts as your subordinates.</li>
+                    <li class="mb-2">Add or remove those users from access groups.</li>
                 </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle me-1"></i>{{.user.Username}}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container-fluid mt-4">
-        {{if eq .role "ADMIN"}}
-        <!-- ADMIN Dashboard -->
-        <div class="row">
-            <div class="col-12">
-                <h1 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Admin Dashboard</h1>
-            </div>
-        </div>
-
-        <!-- Statistics Cards -->
-        <div class="row">
-            <div class="col-xl-2 col-md-4 mb-4">
-                <div class="card bg-primary text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-white-50 small">Total Users</div>
-                                <div class="fs-2 fw-bold">{{if .stats}}{{.stats.TotalUsers}}{{else}}0{{end}}</div>
-                            </div>
-                            <i class="bi bi-people fs-1 opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-2 col-md-4 mb-4">
-                <div class="card bg-success text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-white-50 small">Active Users</div>
-                                <div class="fs-2 fw-bold">{{if .stats}}{{.stats.ActiveUsers}}{{else}}0{{end}}</div>
-                            </div>
-                            <i class="bi bi-person-check fs-1 opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-2 col-md-4 mb-4">
-                <div class="card bg-info text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-white-50 small">Connected</div>
-                                <div class="fs-2 fw-bold">{{if .stats}}{{.stats.ConnectedUsers}}{{else}}0{{end}}</div>
-                            </div>
-                            <i class="bi bi-wifi fs-1 opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-2 col-md-4 mb-4">
-                <div class="card bg-warning text-dark h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-dark-50 small">Groups</div>
-                                <div class="fs-2 fw-bold">{{if .stats}}{{.stats.TotalGroups}}{{else}}0{{end}}</div>
-                            </div>
-                            <i class="bi bi-diagram-3 fs-1 opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-2 col-md-4 mb-4">
-                <div class="card bg-secondary text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-white-50 small">Networks</div>
-                                <div class="fs-2 fw-bold">{{if .stats}}{{.stats.TotalNetworks}}{{else}}0{{end}}</div>
-                            </div>
-                            <i class="bi bi-hdd-network fs-1 opacity-50"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-2 col-md-4 mb-4">
-                <div class="card bg-dark text-white h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-white-50 small">Sessions</div>
-                                <div class="fs-2 fw-bold">{{if .stats}}{{.stats.TotalSessions}}{{else}}0{{end}}</div>
-                            </div>
-                            <i class="bi bi-clock-history fs-1 opacity-50"></i>
-                        </div>
-                    </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/users" class="btn btn-primary"><i class="bi bi-people me-1"></i>Manage users</a>
+                    <a href="/groups" class="btn btn-outline-secondary"><i class="bi bi-diagram-3 me-1"></i>View groups</a>
                 </div>
             </div>
         </div>
-
-        <!-- Charts Row -->
-        <div class="row">
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <i class="bi bi-download me-2"></i>Received Bytes (Last 30 Days)
-                    </div>
-                    <div class="card-body">
-                        <canvas id="receivedChart"></canvas>
-                    </div>
-                </div>
+    </div>
+    <div class="col-lg-5">
+        {{with .user}}
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="card-header-title"><i class="bi bi-person"></i>Your account</h2>
             </div>
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <i class="bi bi-upload me-2"></i>Sent Bytes (Last 30 Days)
-                    </div>
-                    <div class="card-body">
-                        <canvas id="sentChart"></canvas>
-                    </div>
+            <div class="card-body">
+                <div class="detail-list">
+                    <div class="detail-row"><span class="detail-label">Username</span><span class="detail-value">{{.Username}}</span></div>
+                    <div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">{{.Email}}</span></div>
+                    <div class="detail-row"><span class="detail-label">Telephone</span><span class="detail-value">{{if .Telephone}}{{.Telephone}}{{else}}<span class="text-muted-2">Not set</span>{{end}}</span></div>
+                    <div class="detail-row"><span class="detail-label">Member since</span><span class="detail-value">{{.CreatedAt.Format "2 Jan 2006"}}</span></div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Recent Audit Logs -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-journal-text me-2"></i>Recent Audit Logs</span>
-                        <a href="/audit" class="btn btn-sm btn-outline-primary">View All</a>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>User</th>
-                                        <th>Action</th>
-                                        <th>Entity</th>
-                                        <th>IP Address</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {{if .stats}}
-                                    {{range .stats.RecentAuditLogs}}
-                                    <tr>
-                                        <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
-                                        <td>{{if .User}}{{.User.Username}}{{else}}-{{end}}</td>
-                                        <td>
-                                            {{if eq .Action "CREATE"}}<span class="badge bg-success">{{.Action}}</span>
-                                            {{else if eq .Action "UPDATE"}}<span class="badge bg-warning text-dark">{{.Action}}</span>
-                                            {{else if eq .Action "DELETE"}}<span class="badge bg-danger">{{.Action}}</span>
-                                            {{else if eq .Action "LOGIN"}}<span class="badge bg-info">{{.Action}}</span>
-                                            {{else if eq .Action "LOGOUT"}}<span class="badge bg-secondary">{{.Action}}</span>
-                                            {{else}}<span class="badge bg-light text-dark">{{.Action}}</span>
-                                            {{end}}
-                                        </td>
-                                        <td>{{.EntityType}}</td>
-                                        <td>{{.IPAddress}}</td>
-                                    </tr>
-                                    {{end}}
-                                    {{else}}
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted">No audit logs available</td>
-                                    </tr>
-                                    {{end}}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{else if eq .role "MANAGER"}}
-        <!-- MANAGER Dashboard -->
-        <div class="row">
-            <div class="col-12">
-                <h1 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Manager Dashboard</h1>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h5 class="card-title">Welcome</h5>
-                                <h2>{{.user.FirstName}} {{.user.LastName}}</h2>
-                            </div>
-                            <div class="fs-1">
-                                <i class="bi bi-person-circle"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h5 class="card-title">Your Subordinates</h5>
-                                <h2>{{if .subordinateCount}}{{.subordinateCount}}{{else}}0{{end}}</h2>
-                            </div>
-                            <div class="fs-1">
-                                <i class="bi bi-people"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-info-circle me-2"></i>Manager Information
-                    </div>
-                    <div class="card-body">
-                        <p>As a Manager, you can:</p>
-                        <ul>
-                            <li>View and manage your subordinate users</li>
-                            <li>Add users to groups</li>
-                            <li>Create new users (as your subordinates)</li>
-                        </ul>
-                        <div class="mt-4">
-                            <a href="/users" class="btn btn-primary me-2">
-                                <i class="bi bi-people me-1"></i>Manage Users
-                            </a>
-                            <a href="/groups" class="btn btn-outline-primary">
-                                <i class="bi bi-diagram-3 me-1"></i>View Groups
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{else}}
-        <!-- USER Dashboard -->
-        <div class="row">
-            <div class="col-12">
-                <h1 class="mb-4"><i class="bi bi-person-circle me-2"></i>My Profile</h1>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-person me-2"></i>Profile Information
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Username:</div>
-                            <div class="col-md-8">{{.user.Username}}</div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Name:</div>
-                            <div class="col-md-8">{{.user.FirstName}} {{if .user.MiddleName}}{{.user.MiddleName}} {{end}}{{.user.LastName}}</div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Email:</div>
-                            <div class="col-md-8">{{.user.Email}}</div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Telephone:</div>
-                            <div class="col-md-8">{{if .user.Telephone}}{{.user.Telephone}}{{else}}-{{end}}</div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Role:</div>
-                            <div class="col-md-8"><span class="badge bg-secondary">{{.role}}</span></div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Status:</div>
-                            <div class="col-md-8">
-                                {{if .user.IsActive}}
-                                <span class="badge bg-success">Active</span>
-                                {{else}}
-                                <span class="badge bg-danger">Inactive</span>
-                                {{end}}
-                            </div>
-                        </div>
-                        {{if .user.VpnIP}}
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">VPN IP:</div>
-                            <div class="col-md-8"><code>{{.user.VpnIP}}</code></div>
-                        </div>
-                        {{end}}
-                        {{if .user.ValidFrom}}
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Valid From:</div>
-                            <div class="col-md-8">{{.user.ValidFrom.Format "2006-01-02"}}</div>
-                        </div>
-                        {{end}}
-                        {{if .user.ValidTo}}
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Valid To:</div>
-                            <div class="col-md-8">{{.user.ValidTo.Format "2006-01-02"}}</div>
-                        </div>
-                        {{end}}
-                        <hr>
-                        <div class="d-flex gap-2">
-                            <a href="/profile" class="btn btn-primary">
-                                <i class="bi bi-pencil me-1"></i>Edit Profile
-                            </a>
-                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
-                                <i class="bi bi-key me-1"></i>Change Password
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-primary text-white mb-4">
-                    <div class="card-body text-center">
-                        <i class="bi bi-person-circle display-1"></i>
-                        <h4 class="mt-3">{{.user.FirstName}} {{.user.LastName}}</h4>
-                        <p class="mb-0">{{.user.Email}}</p>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-shield-check me-2"></i>Account Status
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-2">
-                            <strong>Account:</strong>
-                            {{if .user.IsActive}}
-                            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Active</span>
-                            {{else}}
-                            <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Inactive</span>
-                            {{end}}
-                        </p>
-                        <p class="mb-0 text-muted small">
-                            Member since: {{.user.CreatedAt.Format "Jan 2, 2006"}}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Change Password Modal -->
-        <div class="modal fade" id="changePasswordModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="bi bi-key me-2"></i>Change Password</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <form id="changePasswordForm">
-                        <div class="modal-body">
-                            <div id="passwordAlert" class="alert d-none"></div>
-                            <div class="mb-3">
-                                <label for="currentPassword" class="form-label">Current Password</label>
-                                <input type="password" class="form-control" id="currentPassword" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="newPassword" class="form-label">New Password</label>
-                                <input type="password" class="form-control" id="newPassword" required minlength="8">
-                            </div>
-                            <div class="mb-3">
-                                <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                                <input type="password" class="form-control" id="confirmPassword" required>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Change Password</button>
-                        </div>
-                    </form>
-                </div>
+                <a href="/profile" class="btn btn-outline-secondary btn-sm mt-3"><i class="bi bi-pencil me-1"></i>Edit profile</a>
             </div>
         </div>
         {{end}}
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
+{{else}}
+{{/* ----------------------------------------------------------------- USER */}}
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Welcome back{{with .user}}, {{.FirstName}}{{end}}</h1>
+        <p class="page-header-subtitle">Your VPN account details and access status.</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/profile" class="btn btn-primary btn-sm"><i class="bi bi-pencil me-1"></i>Edit profile</a>
+    </div>
+</div>
 
-    {{if eq .role "ADMIN"}}
-    <script>
-        // Traffic charts for ADMIN
-        document.addEventListener('DOMContentLoaded', function() {
-            {{if .stats}}
-            const trafficData = {{.stats.TrafficStats}};
-            const labels = trafficData.map(d => d.date.substring(5)); // MM-DD format
-            const receivedData = trafficData.map(d => d.bytes_received / (1024 * 1024)); // Convert to MB
-            const sentData = trafficData.map(d => d.bytes_sent / (1024 * 1024)); // Convert to MB
+{{with .user}}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body text-center">
+                <span class="avatar avatar-lg mx-auto" data-avatar-name="{{.FirstName}} {{.LastName}}"></span>
+                <h2 class="h5 mt-3 mb-1">{{.FirstName}} {{if .MiddleName}}{{.MiddleName}} {{end}}{{.LastName}}</h2>
+                <p class="text-muted-2 mb-3">@{{.Username}}</p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <span class="pill pill-neutral">{{$.role}}</span>
+                    {{if .IsActive}}
+                    <span class="pill pill-green"><i class="bi bi-check-circle-fill"></i>Active</span>
+                    {{else}}
+                    <span class="pill pill-red"><i class="bi bi-slash-circle-fill"></i>Inactive</span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
 
-            // Received Chart
-            new Chart(document.getElementById('receivedChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Received (MB)',
-                        data: receivedData,
-                        borderColor: 'rgb(25, 135, 84)',
-                        backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-header-title"><i class="bi bi-shield-check"></i>Access window</h2>
+            </div>
+            <div class="card-body">
+                <div class="detail-list">
+                    <div class="detail-row">
+                        <span class="detail-label">Valid from</span>
+                        <span class="detail-value">{{if .ValidFrom}}{{.ValidFrom.Format "2006-01-02"}}{{else}}<span class="text-muted-2">No limit</span>{{end}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Valid to</span>
+                        <span class="detail-value">{{if .ValidTo}}{{.ValidTo.Format "2006-01-02"}}{{else}}<span class="text-muted-2">No limit</span>{{end}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Member since</span>
+                        <span class="detail-value">{{.CreatedAt.Format "2 Jan 2006"}}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h2 class="card-header-title"><i class="bi bi-person"></i>Profile</h2>
+            </div>
+            <div class="card-body">
+                <div class="detail-list">
+                    <div class="detail-row">
+                        <span class="detail-label"><i class="bi bi-person-badge"></i>Username</span>
+                        <span class="detail-value">{{.Username}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label"><i class="bi bi-card-text"></i>Full name</span>
+                        <span class="detail-value">{{.FirstName}} {{if .MiddleName}}{{.MiddleName}} {{end}}{{.LastName}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label"><i class="bi bi-envelope"></i>Email</span>
+                        <span class="detail-value">{{.Email}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label"><i class="bi bi-telephone"></i>Telephone</span>
+                        <span class="detail-value">{{if .Telephone}}{{.Telephone}}{{else}}<span class="text-muted-2">Not set</span>{{end}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label"><i class="bi bi-hdd-network"></i>VPN IP</span>
+                        <span class="detail-value">{{if .VpnIP}}<code>{{.VpnIP}}</code>{{else}}<span class="text-muted-2">Assigned dynamically</span>{{end}}</span>
+                    </div>
+                    {{if .Manager}}
+                    <div class="detail-row">
+                        <span class="detail-label"><i class="bi bi-person-workspace"></i>Manager</span>
+                        <span class="detail-value">{{.Manager.FirstName}} {{.Manager.LastName}}</span>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            <div class="card-footer d-flex flex-wrap gap-2">
+                <a href="/profile" class="btn btn-primary btn-sm"><i class="bi bi-pencil me-1"></i>Edit profile</a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                    <i class="bi bi-key me-1"></i>Change password
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-key"></i>Change password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="changePasswordForm">
+                <div class="modal-body">
+                    <div id="passwordAlert" class="alert d-none"></div>
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current password</label>
+                        <input type="password" class="form-control" id="currentPassword" autocomplete="current-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New password</label>
+                        <input type="password" class="form-control" id="newPassword" autocomplete="new-password" required minlength="8">
+                        <div class="form-text">At least 8 characters.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label for="confirmPassword" class="form-label">Confirm new password</label>
+                        <input type="password" class="form-control" id="confirmPassword" autocomplete="new-password" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{template "shell_close" .}}
+{{template "scripts" .}}
+
+{{if eq .role "ADMIN"}}
+<script>
+    // Traffic charts. `.stats.TrafficStats` is marshalled to JSON by
+    // html/template, matching services.DailyTrafficStats:
+    // { date, bytes_received, bytes_sent }.
+    const trafficStats = {{if .stats}}{{.stats.TrafficStats}}{{else}}[]{{end}};
+
+    let trafficCharts = [];
+
+    function chartTheme() {
+        const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        return {
+            grid: dark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.08)',
+            tick: dark ? '#94a3b8' : '#64748b',
+        };
+    }
+
+    function buildTrafficChart(canvasId, label, values, colour) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || typeof Chart === 'undefined') return null;
+
+        const theme = chartTheme();
+        const gradient = canvas.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        gradient.addColorStop(0, `${colour}44`);
+        gradient.addColorStop(1, `${colour}00`);
+
+        return new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: (trafficStats || []).map((d) => String(d.date).substring(5)),
+                datasets: [{
+                    label,
+                    data: values,
+                    borderColor: colour,
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${label}: ${formatBytes(ctx.parsed.y)}`,
+                        },
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(2) + ' MB';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Sent Chart
-            new Chart(document.getElementById('sentChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Sent (MB)',
-                        data: sentData,
-                        borderColor: 'rgb(13, 110, 253)',
-                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: theme.tick, maxRotation: 0, autoSkipPadding: 16 },
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(2) + ' MB';
-                                }
-                            }
-                        }
-                    }
-                }
+                    y: {
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: { color: theme.grid },
+                        ticks: { color: theme.tick, callback: (value) => formatBytes(value) },
+                    },
+                },
+            },
+        });
+    }
+
+    function renderTrafficCharts() {
+        trafficCharts.forEach((chart) => chart && chart.destroy());
+        const stats = trafficStats || [];
+        trafficCharts = [
+            buildTrafficChart('receivedChart', 'Received', stats.map((d) => d.bytes_received), '#059669'),
+            buildTrafficChart('sentChart', 'Sent', stats.map((d) => d.bytes_sent), '#2563eb'),
+        ];
+    }
+
+    document.addEventListener('DOMContentLoaded', renderTrafficCharts);
+    document.addEventListener('themechange', renderTrafficCharts);
+</script>
+{{end}}
+
+{{if eq .role "USER"}}
+<script>
+    document.getElementById('changePasswordForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearFormAlert('passwordAlert');
+
+        const newPassword = document.getElementById('newPassword').value;
+        if (newPassword !== document.getElementById('confirmPassword').value) {
+            setFormAlert('passwordAlert', 'New passwords do not match.');
+            return;
+        }
+
+        try {
+            await api.put('/api/v1/users/password', {
+                current_password: document.getElementById('currentPassword').value,
+                new_password: newPassword,
             });
-            {{end}}
-        });
-    </script>
-    {{end}}
-
-    {{if eq .role "USER"}}
-    <script>
-        // Change password form handler
-        document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const alert = document.getElementById('passwordAlert');
-            alert.classList.add('d-none');
-
-            const currentPassword = document.getElementById('currentPassword').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-
-            if (newPassword !== confirmPassword) {
-                alert.className = 'alert alert-danger';
-                alert.textContent = 'New passwords do not match';
-                alert.classList.remove('d-none');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/v1/users/password', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        current_password: currentPassword,
-                        new_password: newPassword
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    alert.className = 'alert alert-success';
-                    alert.textContent = 'Password changed successfully';
-                    alert.classList.remove('d-none');
-                    document.getElementById('changePasswordForm').reset();
-                    setTimeout(() => {
-                        bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
-                    }, 2000);
-                } else {
-                    alert.className = 'alert alert-danger';
-                    alert.textContent = data.message || 'Failed to change password';
-                    alert.classList.remove('d-none');
-                }
-            } catch (error) {
-                alert.className = 'alert alert-danger';
-                alert.textContent = 'Connection error. Please try again.';
-                alert.classList.remove('d-none');
-            }
-        });
-    </script>
-    {{end}}
+            setFormAlert('passwordAlert', 'Password changed successfully.', 'success');
+            document.getElementById('changePasswordForm').reset();
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                showToast('Password changed successfully.');
+            }, 1200);
+        } catch (error) {
+            setFormAlert('passwordAlert', error.message);
+        }
+    });
+</script>
+{{end}}
 </body>
 </html>

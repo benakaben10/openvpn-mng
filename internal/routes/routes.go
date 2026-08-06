@@ -81,6 +81,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 					users.POST("", middleware.RequireManagerOrAdmin(), userHandler.Create)
 					users.GET("/:id", userHandler.Get)
 					users.PUT("/:id", userHandler.Update)
+					users.PUT("/:id/password", middleware.RequireAdmin(), userHandler.ResetPassword)
 					users.DELETE("/:id", middleware.RequireAdmin(), userHandler.Delete)
 
 					// User groups management

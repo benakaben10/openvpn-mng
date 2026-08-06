@@ -203,6 +203,13 @@ func TestGroupService_AddUserToGroup(t *testing.T) {
 		err := service.AddUserToGroup(group.ID, uuid.New(), admin.ID)
 		assert.Error(t, err)
 	})
+
+	t.Run("fails for non-existent network", func(t *testing.T) {
+		group := testutil.CreateTestGroup(t, admin.ID)
+
+		err := service.AddNetworkToGroup(group.ID, uuid.New(), admin.ID)
+		assert.Error(t, err)
+	})
 }
 
 func TestGroupService_RemoveUserFromGroup(t *testing.T) {

@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "52c3d8cc05c382ad1c6ff1d65aedd26be12dd8df",
+    "indexed_at": "2026-08-06T03:04:37Z",
+    "project": "home-coder-workspace-oss-openvpn-mng",
+    "nodes": 1053,
+    "edges": 3722,
+    "original_size": 5505024,
+    "compressed_size": 722850,
+    "compression_level": 3
+}

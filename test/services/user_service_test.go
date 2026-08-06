@@ -74,6 +74,33 @@ func TestUserService_Create(t *testing.T) {
 		assert.Equal(t, services.ErrUserExists, err)
 	})
 
+	t.Run("restores a soft-deleted user when creating it again", func(t *testing.T) {
+		req := &dto.CreateUserRequest{
+			Username:  "recreateduser",
+			Password:  "newpassword123",
+			FirstName: "Recreated",
+			LastName:  "User",
+			Email:     "recreated@test.com",
+			Role:      models.RoleUser,
+		}
+
+		original, err := service.Create(req, admin.ID)
+		require.NoError(t, err)
+		require.NoError(t, service.Delete(original.ID))
+
+		restored, err := service.Create(req, admin.ID)
+		require.NoError(t, err)
+		assert.Equal(t, original.ID, restored.ID)
+		assert.True(t, services.VerifyPassword(req.Password, restored.Password))
+
+		// Count needs an explicit model: without it GORM cannot resolve the
+		// table and fails with "Table not set".
+		var count int64
+		require.NoError(t, db.Unscoped().Model(&models.User{}).
+			Where("username = ?", req.Username).Count(&count).Error)
+		assert.Equal(t, int64(1), count)
+	})
+
 	t.Run("creates user with manager", func(t *testing.T) {
 		manager := testutil.CreateTestManager(t)
 
@@ -277,6 +304,22 @@ func TestUserService_Delete(t *testing.T) {
 		_, err = service.GetByID(testUser.ID)
 		assert.Error(t, err)
 	})
+}
+
+func TestUserService_ResetPassword(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	defer testutil.CleanupTestDB(t, db)
+
+	service := services.NewUserService()
+	admin := testutil.CreateTestAdmin(t)
+	user := testutil.CreateTestRegularUser(t)
+
+	require.NoError(t, service.ResetPassword(user.ID, "adminreset123", admin.ID))
+
+	updated, err := service.GetByID(user.ID)
+	require.NoError(t, err)
+	assert.True(t, services.VerifyPassword("adminreset123", updated.Password))
+	assert.Equal(t, admin.ID, *updated.UpdatedBy)
 }
 
 func TestUserService_List(t *testing.T) {

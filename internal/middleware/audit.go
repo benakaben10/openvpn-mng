@@ -9,12 +9,47 @@ import (
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/models"
 )
 
+// DefaultAuditLogMaxEntries is the number of newest audit entries retained
+// when SetAuditLogMaxEntries has not overridden it. Exported so callers (and
+// tests) can restore the default without hard-coding the number.
+const DefaultAuditLogMaxEntries = 10000
+
+var auditLogMaxEntries = DefaultAuditLogMaxEntries
+
 // AuditLogger provides methods for logging audit events
-type AuditLogger struct{}
+type AuditLogger struct {
+	maxEntries int
+}
+
+// SetAuditLogMaxEntries configures the number of newest audit entries kept.
+func SetAuditLogMaxEntries(maxEntries int) {
+	if maxEntries > 0 {
+		auditLogMaxEntries = maxEntries
+	}
+}
 
 // NewAuditLogger creates a new audit logger
 func NewAuditLogger() *AuditLogger {
-	return &AuditLogger{}
+	return &AuditLogger{maxEntries: auditLogMaxEntries}
+}
+
+func (al *AuditLogger) save(auditLog *models.AuditLog) error {
+	db := database.GetDB()
+	if err := db.Create(auditLog).Error; err != nil {
+		return err
+	}
+
+	var expiredIDs []uuid.UUID
+	if err := db.Model(&models.AuditLog{}).
+		Order("created_at DESC, id DESC").
+		Offset(al.maxEntries).
+		Pluck("id", &expiredIDs).Error; err != nil {
+		return err
+	}
+	if len(expiredIDs) == 0 {
+		return nil
+	}
+	return db.Where("id IN ?", expiredIDs).Delete(&models.AuditLog{}).Error
 }
 
 // Log creates an audit log entry
@@ -51,7 +86,7 @@ func (al *AuditLogger) Log(c *gin.Context, action models.AuditAction, entityType
 		Details:    details,
 	}
 
-	return database.GetDB().Create(auditLog).Error
+	return al.save(auditLog)
 }
 
 // LogCreate logs a create action
@@ -80,7 +115,7 @@ func (al *AuditLogger) LogLogin(c *gin.Context, userID uuid.UUID, details string
 		UserAgent:  c.Request.UserAgent(),
 		Details:    details,
 	}
-	return database.GetDB().Create(auditLog).Error
+	return al.save(auditLog)
 }
 
 // LogLogout logs a logout action
@@ -93,5 +128,5 @@ func (al *AuditLogger) LogLogout(c *gin.Context, userID uuid.UUID) error {
 		IPAddress:  c.ClientIP(),
 		UserAgent:  c.Request.UserAgent(),
 	}
-	return database.GetDB().Create(auditLog).Error
+	return al.save(auditLog)
 }

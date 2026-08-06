@@ -92,6 +92,11 @@ type UpdatePasswordRequest struct {
 	NewPassword     string `json:"new_password" binding:"required,min=8"`
 }
 
+// ResetUserPasswordRequest represents an administrator password reset.
+type ResetUserPasswordRequest struct {
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
 // UpdateProfileRequest represents a request to update own profile (for USER role)
 type UpdateProfileRequest struct {
 	FirstName  string `json:"first_name,omitempty" binding:"max=100"`

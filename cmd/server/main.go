@@ -34,6 +34,7 @@ import (
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/config"
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/database"
 	applogger "github.com/tldr-it-stepankutaj/openvpn-mng/internal/logger"
+	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/middleware"
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/models"
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/routes"
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/services"
@@ -82,6 +83,8 @@ func main() {
 		applogger.Error("Failed to run database migrations", "error", err)
 		os.Exit(1)
 	}
+	middleware.SetAuditLogMaxEntries(cfg.Audit.MaxEntries)
+	applogger.Info("Audit log retention configured", "max_entries", cfg.Audit.MaxEntries)
 
 	// Create a default admin user if not exists
 	createDefaultAdmin()

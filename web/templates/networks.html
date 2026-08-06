@@ -1,521 +1,408 @@
 <!DOCTYPE html>
-<html lang="cs">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.title}}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
-</head>
+<html lang="en" data-bs-theme="light">
+<head>{{template "head" .}}</head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/dashboard">
-                <i class="bi bi-shield-lock me-2"></i>OpenVPN Manager
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/dashboard">
-                            <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/users">
-                            <i class="bi bi-people me-1"></i>Users
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/groups">
-                            <i class="bi bi-diagram-3 me-1"></i>Groups
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/networks">
-                            <i class="bi bi-hdd-network me-1"></i>Networks
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/audit">
-                            <i class="bi bi-journal-text me-1"></i>Audit
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/sessions">
-                            <i class="bi bi-clock-history me-1"></i>History
-                        </a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle me-1"></i>Profile
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{{template "shell_open" .}}
 
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1><i class="bi bi-hdd-network me-2"></i>Networks</h1>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createNetworkModal">
-                        <i class="bi bi-plus-lg me-1"></i>Create Network
-                    </button>
-                </div>
-            </div>
-        </div>
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Networks</h1>
+        <p class="page-header-subtitle">CIDR ranges that can be pushed to VPN clients through an access group.</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createNetworkModal">
+            <i class="bi bi-plus-lg me-1"></i>New network
+        </button>
+    </div>
+</div>
 
-        <!-- Alert Container -->
-        <div id="alertContainer"></div>
-
-        <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Name</th>
-                                <th>CIDR</th>
-                                <th>Groups</th>
-                                <th>Description</th>
-                                <th>Created</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {{range .networks}}
-                            <tr>
-                                <td>
-                                    <i class="bi bi-diagram-2 me-2 text-success"></i>
-                                    <strong>{{.Name}}</strong>
-                                </td>
-                                <td><code>{{.CIDR}}</code></td>
-                                <td>
-                                    <span class="group-badges" data-network-id="{{.ID}}">
-                                        <span class="text-muted"><small>Loading...</small></span>
-                                    </span>
-                                </td>
-                                <td>
-                                    {{if .Description}}
-                                    {{.Description}}
-                                    {{else}}
-                                    <span class="text-muted">No description</span>
-                                    {{end}}
-                                </td>
-                                <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
-                                <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-info" onclick="viewNetwork('{{.ID}}')" title="View">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                        <button class="btn btn-outline-warning" onclick="editNetwork('{{.ID}}')" title="Edit">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button class="btn btn-outline-danger" onclick="confirmDeleteNetwork('{{.ID}}', '{{.Name}}')" title="Delete">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {{else}}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    No networks found
-                                </td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
-                </div>
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-header-title"><i class="bi bi-hdd-network-fill"></i>Network inventory</h2>
+        <div class="toolbar">
+            <div class="search-field">
+                <i class="bi bi-search"></i>
+                <input type="search" class="form-control form-control-sm" id="networkFilter"
+                       placeholder="Filter this page…" aria-label="Filter networks on this page">
             </div>
+            <span class="text-muted-2 small">{{.total}} total</span>
         </div>
     </div>
 
-    <!-- View Network Modal -->
-    <div class="modal fade" id="viewNetworkModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title"><i class="bi bi-hdd-network me-2"></i>Network Details</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="viewNetworkContent">
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Network</th>
+                    <th>CIDR</th>
+                    <th>Groups with access</th>
+                    <th>Description</th>
+                    <th>Created</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="networksTableBody">
+                {{range .networks}}
+                <tr data-searchable="{{.Name}} {{.CIDR}} {{.Description}}">
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-diagram-2-fill text-primary"></i>
+                            <span class="cell-primary">{{.Name}}</span>
                         </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-warning" id="viewToEditBtn" onclick="viewToEdit()">
-                        <i class="bi bi-pencil me-1"></i>Edit
-                    </button>
-                </div>
+                    </td>
+                    <td><code>{{.CIDR}}</code></td>
+                    <td>
+                        <span class="badge-stack" data-network-groups="{{.ID}}">
+                            <span class="skeleton skeleton-chip"></span>
+                        </span>
+                    </td>
+                    <td>
+                        {{if .Description}}{{.Description}}{{else}}<span class="text-muted-2">No description</span>{{end}}
+                    </td>
+                    <td class="text-nowrap"><small>{{.CreatedAt.Format "2006-01-02 15:04"}}</small></td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="row-action row-action-view" onclick="viewNetwork('{{.ID}}')"
+                                    title="View details" aria-label="View details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="row-action row-action-edit" onclick="editNetwork('{{.ID}}')"
+                                    title="Edit network" aria-label="Edit network">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="row-action row-action-danger" onclick="confirmDeleteNetwork('{{.ID}}', '{{.Name}}')"
+                                    title="Delete network" aria-label="Delete network">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <span class="empty-state-icon"><i class="bi bi-hdd-network"></i></span>
+                            <p class="empty-state-title">No networks yet</p>
+                            <p class="empty-state-text">Add a CIDR range, then route it to a group to give users access.</p>
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="networkFilterEmpty" class="empty-state d-none">
+        <span class="empty-state-icon"><i class="bi bi-search"></i></span>
+        <p class="empty-state-title">No matches on this page</p>
+        <p class="empty-state-text">The API paginates server-side, so try clearing the filter or moving to another page.</p>
+    </div>
+
+    {{if gt .totalPages 1}}
+    <div class="list-pagination">
+        <span>Page {{.page}} of {{.totalPages}} · {{.total}} networks</span>
+        <nav aria-label="Networks pagination">
+            <ul class="pagination pagination-sm">
+                <li class="page-item {{if not .hasPrev}}disabled{{end}}">
+                    <a class="page-link" href="/networks?page={{.prevPage}}"><i class="bi bi-chevron-left"></i></a>
+                </li>
+                <li class="page-item active"><span class="page-link">{{.page}}</span></li>
+                <li class="page-item {{if not .hasNext}}disabled{{end}}">
+                    <a class="page-link" href="/networks?page={{.nextPage}}"><i class="bi bi-chevron-right"></i></a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {{end}}
+</div>
+
+<!-- View network ------------------------------------------------------- -->
+<div class="modal fade" id="viewNetworkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-hdd-network"></i>Network details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="viewNetworkContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="viewToEdit()">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </button>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Create Network Modal -->
-    <div class="modal fade" id="createNetworkModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Create New Network</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="createNetworkForm" onsubmit="createNetwork(event)">
-                    <div class="modal-body">
-                        <div id="createNetworkAlert" class="alert d-none"></div>
-                        <div class="mb-3">
-                            <label for="createName" class="form-label">Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="createName" required maxlength="100" placeholder="e.g., Corporate LAN">
-                        </div>
-                        <div class="mb-3">
-                            <label for="createCIDR" class="form-label">CIDR <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="createCIDR" required maxlength="50" placeholder="e.g., 192.168.1.0/24">
-                            <small class="text-muted">Network address in CIDR notation (e.g., 10.0.0.0/8, 192.168.1.0/24)</small>
-                        </div>
-                        <div class="mb-3">
-                            <label for="createDescription" class="form-label">Description</label>
-                            <textarea class="form-control" id="createDescription" rows="3" maxlength="500"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i>Create Network
-                        </button>
-                    </div>
-                </form>
+<!-- Create network ----------------------------------------------------- -->
+<div class="modal fade" id="createNetworkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i>New network</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </div>
-    </div>
-
-    <!-- Edit Network Modal -->
-    <div class="modal fade" id="editNetworkModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Network</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="editNetworkForm" onsubmit="updateNetwork(event)">
-                    <input type="hidden" id="editNetworkId">
-                    <div class="modal-body">
-                        <div id="editNetworkAlert" class="alert d-none"></div>
-                        <div class="mb-3">
-                            <label for="editName" class="form-label">Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editName" required maxlength="100">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editCIDR" class="form-label">CIDR <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editCIDR" required maxlength="50">
-                            <small class="text-muted">Network address in CIDR notation (e.g., 10.0.0.0/8, 192.168.1.0/24)</small>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editDescription" class="form-label">Description</label>
-                            <textarea class="form-control" id="editDescription" rows="3" maxlength="500"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-warning">
-                            <i class="bi bi-check-lg me-1"></i>Save Changes
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteNetworkModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Delete</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
+            <form id="createNetworkForm" onsubmit="createNetwork(event)">
                 <div class="modal-body">
-                    <p>Are you sure you want to delete network <strong id="deleteNetworkName"></strong>?</p>
-                    <p class="text-danger mb-0"><small>This action cannot be undone. Groups assigned to this network will lose access.</small></p>
-                    <input type="hidden" id="deleteNetworkId">
+                    <div id="createNetworkAlert" class="alert d-none"></div>
+                    <div class="mb-3">
+                        <label for="createName" class="form-label">Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="createName" required maxlength="100"
+                               placeholder="e.g. Corporate LAN">
+                    </div>
+                    <div class="mb-3">
+                        <label for="createCIDR" class="form-label">CIDR <span class="required">*</span></label>
+                        <input type="text" class="form-control font-mono" id="createCIDR" required maxlength="50"
+                               placeholder="192.168.1.0/24"
+                               pattern="^\s*\S+\s*$">
+                        <div class="form-text">Network address in CIDR notation, for example <code>10.0.0.0/8</code> or <code>192.168.1.0/24</code>.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label for="createDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="createDescription" rows="3" maxlength="500"></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteNetwork()">
-                        <i class="bi bi-trash me-1"></i>Delete Network
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create network</button>
                 </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit network ------------------------------------------------------- -->
+<div class="modal fade" id="editNetworkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square"></i>Edit network</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editNetworkForm" onsubmit="updateNetwork(event)">
+                <input type="hidden" id="editNetworkId">
+                <div class="modal-body">
+                    <div id="editNetworkAlert" class="alert d-none"></div>
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="editName" required maxlength="100">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCIDR" class="form-label">CIDR <span class="required">*</span></label>
+                        <input type="text" class="form-control font-mono" id="editCIDR" required maxlength="50">
+                        <div class="form-text">Changing the range immediately affects every group that routes it.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label for="editDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="editDescription" rows="3" maxlength="500"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete network ----------------------------------------------------- -->
+<div class="modal fade" id="deleteNetworkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle-fill"></i>Delete network</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Delete <strong id="deleteNetworkName"></strong>?</p>
+                <p class="text-muted-2 mb-0 small">Groups routing this network lose access to it. This cannot be undone.</p>
+                <input type="hidden" id="deleteNetworkId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="deleteNetwork()"><i class="bi bi-trash me-1"></i>Delete network</button>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script>
-        let currentViewNetworkId = null;
+{{template "shell_close" .}}
+{{template "scripts" .}}
+<script>
+    let currentViewNetworkId = null;
 
-        function showAlert(message, type = 'success') {
-            const container = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type} alert-dismissible fade show`;
-            alert.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            container.appendChild(alert);
-            setTimeout(() => alert.remove(), 5000);
-        }
+    function applyNetworkFilter() {
+        filterTableRows('networksTableBody', document.getElementById('networkFilter').value, 'networkFilterEmpty');
+    }
 
-        // Load groups for each network on page load
-        async function loadNetworkGroups() {
-            const badges = document.querySelectorAll('.group-badges');
-            for (const badge of badges) {
-                const networkId = badge.dataset.networkId;
-                try {
-                    const response = await fetch(`/api/v1/networks/${networkId}/groups`);
-                    if (response.ok) {
-                        const groups = await response.json();
-                        if (groups && groups.length > 0) {
-                            badge.innerHTML = groups.map(g =>
-                                `<span class="badge bg-primary me-1"><i class="bi bi-folder me-1"></i>${g.name}</span>`
-                            ).join('');
-                        } else {
-                            badge.innerHTML = '<span class="text-muted"><small>No groups</small></span>';
-                        }
-                    }
-                } catch (error) {
-                    badge.innerHTML = '<span class="text-danger"><small>Error</small></span>';
+    /** One request per row for the group badges, bounded concurrency. */
+    async function loadNetworkGroups() {
+        const cells = Array.from(document.querySelectorAll('[data-network-groups]'));
+
+        await mapWithConcurrency(cells, 6, async (cell) => {
+            try {
+                // GET /networks/{id}/groups returns a plain array.
+                const groups = (await api.get(`/api/v1/networks/${cell.dataset.networkGroups}/groups`)) || [];
+                if (groups.length === 0) {
+                    cell.innerHTML = '<span class="text-muted-2">No groups</span>';
+                    return;
                 }
+                const shown = groups.slice(0, 3);
+                const rest = groups.length - shown.length;
+                cell.innerHTML = shown
+                    .map((g) => `<span class="pill pill-blue"><i class="bi bi-folder"></i>${escapeHtml(g.name)}</span>`)
+                    .join('') + (rest > 0 ? `<span class="pill pill-neutral">+${rest}</span>` : '');
+            } catch {
+                cell.innerHTML = '<span class="text-muted-2">—</span>';
             }
-        }
-
-        // View Network
-        async function viewNetwork(id) {
-            currentViewNetworkId = id;
-            const modal = new bootstrap.Modal(document.getElementById('viewNetworkModal'));
-            modal.show();
-
-            document.getElementById('viewNetworkContent').innerHTML = `
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            `;
-
-            try {
-                const [networkResponse, groupsResponse] = await Promise.all([
-                    fetch(`/api/v1/networks/${id}`),
-                    fetch(`/api/v1/networks/${id}/groups`)
-                ]);
-
-                if (!networkResponse.ok) throw new Error('Failed to load network');
-                const network = await networkResponse.json();
-                const groups = groupsResponse.ok ? await groupsResponse.json() : [];
-
-                renderNetworkDetail(network, groups);
-            } catch (error) {
-                document.getElementById('viewNetworkContent').innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        function renderNetworkDetail(network, groups) {
-            const groupsHtml = groups && groups.length > 0
-                ? groups.map(g => `<span class="badge bg-primary me-1"><i class="bi bi-folder me-1"></i>${g.name}</span>`).join('')
-                : '<span class="text-muted">No groups assigned</span>';
-
-            document.getElementById('viewNetworkContent').innerHTML = `
-                <div class="row">
-                    <div class="col-md-5 text-center border-end">
-                        <div class="fs-1 text-success mb-3">
-                            <i class="bi bi-diagram-2"></i>
-                        </div>
-                        <h4>${network.name}</h4>
-                        <code class="fs-5">${network.cidr}</code>
-                        <p class="text-muted mt-2">${network.description || 'No description'}</p>
-                    </div>
-                    <div class="col-md-7">
-                        <table class="table table-sm table-borderless mb-0">
-                            <tr>
-                                <th width="35%"><i class="bi bi-hash me-2"></i>ID:</th>
-                                <td><code class="small">${network.id}</code></td>
-                            </tr>
-                            <tr>
-                                <th><i class="bi bi-clock me-2"></i>Created:</th>
-                                <td>${new Date(network.created_at).toLocaleString()}</td>
-                            </tr>
-                            ${network.updated_at ? `
-                            <tr>
-                                <th><i class="bi bi-clock-history me-2"></i>Updated:</th>
-                                <td>${new Date(network.updated_at).toLocaleString()}</td>
-                            </tr>` : ''}
-                        </table>
-                        <hr>
-                        <h6><i class="bi bi-folder me-2"></i>Groups with Access</h6>
-                        <div class="mt-2">
-                            ${groupsHtml}
-                        </div>
-                        <small class="text-muted d-block mt-2">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Group assignments are managed from the Groups page
-                        </small>
-                    </div>
-                </div>
-            `;
-        }
-
-        function viewToEdit() {
-            if (currentViewNetworkId) {
-                bootstrap.Modal.getInstance(document.getElementById('viewNetworkModal')).hide();
-                editNetwork(currentViewNetworkId);
-            }
-        }
-
-        // Edit Network
-        async function editNetwork(id) {
-            const modal = new bootstrap.Modal(document.getElementById('editNetworkModal'));
-            document.getElementById('editNetworkAlert').classList.add('d-none');
-
-            try {
-                const response = await fetch(`/api/v1/networks/${id}`);
-                if (!response.ok) throw new Error('Failed to load network');
-                const network = await response.json();
-
-                document.getElementById('editNetworkId').value = network.id;
-                document.getElementById('editName').value = network.name;
-                document.getElementById('editCIDR').value = network.cidr;
-                document.getElementById('editDescription').value = network.description || '';
-
-                modal.show();
-            } catch (error) {
-                showAlert(error.message, 'danger');
-            }
-        }
-
-        async function updateNetwork(event) {
-            event.preventDefault();
-            const alertEl = document.getElementById('editNetworkAlert');
-            alertEl.classList.add('d-none');
-
-            const id = document.getElementById('editNetworkId').value;
-            const data = {
-                name: document.getElementById('editName').value,
-                cidr: document.getElementById('editCIDR').value,
-                description: document.getElementById('editDescription').value || null
-            };
-
-            try {
-                const response = await fetch(`/api/v1/networks/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    bootstrap.Modal.getInstance(document.getElementById('editNetworkModal')).hide();
-                    showAlert('Network updated successfully');
-                    setTimeout(() => window.location.reload(), 1000);
-                } else {
-                    const error = await response.json();
-                    alertEl.className = 'alert alert-danger';
-                    alertEl.textContent = error.message || 'Failed to update network';
-                    alertEl.classList.remove('d-none');
-                }
-            } catch (error) {
-                alertEl.className = 'alert alert-danger';
-                alertEl.textContent = 'Connection error';
-                alertEl.classList.remove('d-none');
-            }
-        }
-
-        // Create Network
-        async function createNetwork(event) {
-            event.preventDefault();
-            const alertEl = document.getElementById('createNetworkAlert');
-            alertEl.classList.add('d-none');
-
-            const data = {
-                name: document.getElementById('createName').value,
-                cidr: document.getElementById('createCIDR').value,
-                description: document.getElementById('createDescription').value || null
-            };
-
-            try {
-                const response = await fetch('/api/v1/networks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    bootstrap.Modal.getInstance(document.getElementById('createNetworkModal')).hide();
-                    showAlert('Network created successfully');
-                    setTimeout(() => window.location.reload(), 1000);
-                } else {
-                    const error = await response.json();
-                    alertEl.className = 'alert alert-danger';
-                    alertEl.textContent = error.message || 'Failed to create network';
-                    alertEl.classList.remove('d-none');
-                }
-            } catch (error) {
-                alertEl.className = 'alert alert-danger';
-                alertEl.textContent = 'Connection error';
-                alertEl.classList.remove('d-none');
-            }
-        }
-
-        // Delete Network
-        function confirmDeleteNetwork(id, name) {
-            document.getElementById('deleteNetworkId').value = id;
-            document.getElementById('deleteNetworkName').textContent = name;
-            new bootstrap.Modal(document.getElementById('deleteNetworkModal')).show();
-        }
-
-        async function deleteNetwork() {
-            const id = document.getElementById('deleteNetworkId').value;
-
-            try {
-                const response = await fetch(`/api/v1/networks/${id}`, { method: 'DELETE' });
-
-                bootstrap.Modal.getInstance(document.getElementById('deleteNetworkModal')).hide();
-
-                if (response.ok) {
-                    showAlert('Network deleted successfully');
-                    setTimeout(() => window.location.reload(), 1000);
-                } else {
-                    const error = await response.json();
-                    showAlert(error.message || 'Failed to delete network', 'danger');
-                }
-            } catch (error) {
-                showAlert('Connection error', 'danger');
-            }
-        }
-
-        // Load groups on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadNetworkGroups();
         });
-    </script>
+    }
+
+    async function viewNetwork(id) {
+        currentViewNetworkId = id;
+        new bootstrap.Modal(document.getElementById('viewNetworkModal')).show();
+
+        const content = document.getElementById('viewNetworkContent');
+        content.innerHTML = '<div class="loading-row"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>';
+
+        try {
+            const [network, groups] = await Promise.all([
+                api.get(`/api/v1/networks/${id}`),
+                api.get(`/api/v1/networks/${id}/groups`).catch(() => []),
+            ]);
+            renderNetworkDetail(network, groups || []);
+        } catch (error) {
+            content.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    function renderNetworkDetail(network, groups) {
+        const groupsHtml = groups.length
+            ? groups.map((g) => `<span class="pill pill-blue"><i class="bi bi-folder"></i>${escapeHtml(g.name)}</span>`).join('')
+            : '<span class="text-muted-2">No groups route this network</span>';
+
+        document.getElementById('viewNetworkContent').innerHTML = `
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <span class="stat-icon stat-violet"><i class="bi bi-diagram-2-fill"></i></span>
+                <div>
+                    <h3 class="h5 mb-1">${escapeHtml(network.name)}</h3>
+                    <code>${escapeHtml(network.cidr)}</code>
+                </div>
+            </div>
+
+            <div class="detail-list">
+                <div class="detail-row">
+                    <span class="detail-label"><i class="bi bi-card-text"></i>Description</span>
+                    <span class="detail-value">${network.description ? escapeHtml(network.description) : '<span class="text-muted-2">No description</span>'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="bi bi-clock"></i>Created</span>
+                    <span class="detail-value">${escapeHtml(formatDateTime(network.created_at))}</span>
+                </div>
+                ${network.updated_at ? `
+                <div class="detail-row">
+                    <span class="detail-label"><i class="bi bi-clock-history"></i>Updated</span>
+                    <span class="detail-value">${escapeHtml(formatDateTime(network.updated_at))}</span>
+                </div>` : ''}
+                <div class="detail-row">
+                    <span class="detail-label"><i class="bi bi-hash"></i>ID</span>
+                    <span class="detail-value"><code class="small">${escapeHtml(network.id)}</code></span>
+                </div>
+            </div>
+
+            <hr class="hairline">
+            <p class="form-section-title"><i class="bi bi-folder"></i>Groups with access (${groups.length})</p>
+            <div class="badge-stack">${groupsHtml}</div>
+            <p class="text-muted-2 small mt-2 mb-0">
+                <i class="bi bi-info-circle me-1"></i>Assign this network to a group from the Groups page.
+            </p>
+        `;
+    }
+
+    function viewToEdit() {
+        if (!currentViewNetworkId) return;
+        bootstrap.Modal.getInstance(document.getElementById('viewNetworkModal')).hide();
+        editNetwork(currentViewNetworkId);
+    }
+
+    async function editNetwork(id) {
+        clearFormAlert('editNetworkAlert');
+        try {
+            const network = await api.get(`/api/v1/networks/${id}`);
+            document.getElementById('editNetworkId').value = network.id;
+            document.getElementById('editName').value = network.name;
+            document.getElementById('editCIDR').value = network.cidr;
+            document.getElementById('editDescription').value = network.description || '';
+            new bootstrap.Modal(document.getElementById('editNetworkModal')).show();
+        } catch (error) {
+            showToast(error.message, 'danger');
+        }
+    }
+
+    async function updateNetwork(event) {
+        event.preventDefault();
+        clearFormAlert('editNetworkAlert');
+
+        const id = document.getElementById('editNetworkId').value;
+        try {
+            await api.put(`/api/v1/networks/${id}`, {
+                name: document.getElementById('editName').value,
+                cidr: document.getElementById('editCIDR').value.trim(),
+                description: document.getElementById('editDescription').value,
+            });
+            bootstrap.Modal.getInstance(document.getElementById('editNetworkModal')).hide();
+            showToast('Network updated.');
+            setTimeout(() => globalThis.location.reload(), 700);
+        } catch (error) {
+            setFormAlert('editNetworkAlert', error.message);
+        }
+    }
+
+    async function createNetwork(event) {
+        event.preventDefault();
+        clearFormAlert('createNetworkAlert');
+
+        try {
+            await api.post('/api/v1/networks', {
+                name: document.getElementById('createName').value,
+                cidr: document.getElementById('createCIDR').value.trim(),
+                description: document.getElementById('createDescription').value,
+            });
+            bootstrap.Modal.getInstance(document.getElementById('createNetworkModal')).hide();
+            showToast('Network created.');
+            setTimeout(() => globalThis.location.reload(), 700);
+        } catch (error) {
+            setFormAlert('createNetworkAlert', error.message);
+        }
+    }
+
+    function confirmDeleteNetwork(id, name) {
+        document.getElementById('deleteNetworkId').value = id;
+        document.getElementById('deleteNetworkName').textContent = name;
+        new bootstrap.Modal(document.getElementById('deleteNetworkModal')).show();
+    }
+
+    async function deleteNetwork() {
+        const id = document.getElementById('deleteNetworkId').value;
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteNetworkModal'));
+
+        try {
+            await api.delete(`/api/v1/networks/${id}`);
+            modal.hide();
+            showToast('Network deleted.');
+            setTimeout(() => globalThis.location.reload(), 700);
+        } catch (error) {
+            modal.hide();
+            showToast(error.message, 'danger');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('networkFilter').addEventListener('input', applyNetworkFilter);
+        loadNetworkGroups();
+    });
+</script>
 </body>
 </html>
