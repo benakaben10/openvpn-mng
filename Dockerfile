@@ -31,9 +31,6 @@ RUN apk --no-cache add ca-certificates tzdata
 # Copy binary from builder
 COPY --from=builder /app/openvpn-mng .
 
-# Copy web templates and static files
-COPY --from=builder /app/web ./web
-
 # Copy Swagger docs if they exist
 COPY --from=builder /app/docs ./docs
 
