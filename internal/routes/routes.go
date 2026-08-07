@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"html/template"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -8,15 +11,18 @@ import (
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/handlers"
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/middleware"
 	"github.com/tldr-it-stepankutaj/openvpn-mng/internal/models"
+	"github.com/tldr-it-stepankutaj/openvpn-mng/web"
 )
 
 // SetupRoutes sets up all routes
 func SetupRoutes(r *gin.Engine, cfg *config.Config, rateLimiter *middleware.RateLimiter, blacklist *middleware.TokenBlacklist) {
-	// Static files
-	r.Static("/static", "./web/static")
+	// Static files (embedded in the binary)
+	r.StaticFS("/static", http.FS(web.Static()))
 
-	// HTML templates
-	r.LoadHTMLGlob("web/templates/*")
+	// HTML templates (embedded in the binary)
+	r.SetHTMLTemplate(template.Must(
+		template.New("").Funcs(r.FuncMap).ParseFS(web.Templates(), "templates/*.html"),
+	))
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(&cfg.Auth, blacklist, &cfg.Security)

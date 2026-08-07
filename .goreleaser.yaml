@@ -43,8 +43,7 @@ archives:
       - README.md
       - LICENSE
       - config.yaml.example
-      - help/*
-      - web/**/*
+      - help/**/*
       - packaging/systemd/openvpn-mng.service
 
 checksum:
@@ -110,13 +109,15 @@ nfpms:
         dst: /usr/share/openvpn-mng/config.yaml.example
         type: config
 
-      # Web assets
-      - src: web/
-        dst: /usr/share/openvpn-mng/web/
+      # Web assets are embedded into the binary (see web/embed.go) —
+      # nothing to ship on disk.
 
       # Documentation
-      - src: help/
-        dst: /usr/share/doc/openvpn-mng/help/
+      # `type: tree` is required: without it nfpm flattens the directory
+      # and help/images/*.png would land next to the .md files.
+      - src: help
+        dst: /usr/share/doc/openvpn-mng/help
+        type: tree
 
       - src: README.md
         dst: /usr/share/doc/openvpn-mng/README.md
@@ -186,7 +187,6 @@ dockers_v2:
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.licenses: "Apache-2.0"
     extra_files:
-      - web
       - config.yaml.example
 
 release:
